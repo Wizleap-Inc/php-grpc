@@ -1,6 +1,6 @@
-# gRPC PHP Extension - Pre-built Binaries
+# gRPC & Protobuf PHP Extensions - Pre-built Binaries
 
-PHP DockerでgRPCをビルドする時間を短縮するため、事前ビルド済みのgRPC拡張バイナリを配布するリポジトリです。
+PHP DockerでgRPCとProtobufをビルドする時間を短縮するため、事前ビルド済みの拡張バイナリを配布するリポジトリです。
 
 ## サポート環境
 
@@ -14,14 +14,15 @@ PHP DockerでgRPCをビルドする時間を短縮するため、事前ビルド
 ```dockerfile
 FROM php:8.3-cli
 
-# gRPC拡張をダウンロード
+# gRPC & Protobuf拡張をダウンロード
 ADD https://github.com/wizleap/grpc-php/releases/latest/download/grpc-php8.3-linux-x86_64.so /usr/local/lib/php/extensions/no-debug-non-zts-20230831/grpc.so
+ADD https://github.com/wizleap/grpc-php/releases/latest/download/protobuf-php8.3-linux-x86_64.so /usr/local/lib/php/extensions/no-debug-non-zts-20230831/protobuf.so
 
 # 拡張を有効化
-RUN docker-php-ext-enable grpc
+RUN docker-php-ext-enable grpc protobuf
 
 # 確認
-RUN php -m | grep grpc
+RUN php -m | grep -E '(grpc|protobuf)'
 ```
 
 ### 手動インストール
@@ -31,6 +32,7 @@ RUN php -m | grep grpc
 ```bash
 # 例: PHP 8.3, Linux x86_64
 wget https://github.com/wizleap/grpc-php/releases/latest/download/grpc-php8.3-linux-x86_64.so
+wget https://github.com/wizleap/grpc-php/releases/latest/download/protobuf-php8.3-linux-x86_64.so
 ```
 
 2. PHP拡張ディレクトリにコピー
@@ -41,18 +43,20 @@ php-config --extension-dir
 
 # コピー
 sudo cp grpc-php8.3-linux-x86_64.so $(php-config --extension-dir)/grpc.so
+sudo cp protobuf-php8.3-linux-x86_64.so $(php-config --extension-dir)/protobuf.so
 ```
 
 3. php.iniで拡張を有効化
 
 ```ini
+extension=protobuf.so
 extension=grpc.so
 ```
 
 4. 確認
 
 ```bash
-php -m | grep grpc
+php -m | grep -E '(grpc|protobuf)'
 ```
 
 ## ビルド時間の比較
@@ -60,7 +64,9 @@ php -m | grep grpc
 ### ビルド前（従来の方法）
 ```dockerfile
 FROM php:8.3-cli
-RUN pecl install grpc  # ⏱️ 5-10分かかる
+RUN pecl install grpc      # ⏱️ 5-10分かかる
+RUN pecl install protobuf  # ⏱️ 3-5分かかる
+# 合計: 8-15分
 ```
 
 ### ビルド後（このリポジトリを使用）
@@ -68,22 +74,33 @@ RUN pecl install grpc  # ⏱️ 5-10分かかる
 FROM php:8.3-cli
 ADD https://github.com/wizleap/grpc-php/releases/latest/download/grpc-php8.3-linux-x86_64.so \
     /usr/local/lib/php/extensions/no-debug-non-zts-20230831/grpc.so
-RUN docker-php-ext-enable grpc  # ⚡ 数秒で完了
+ADD https://github.com/wizleap/grpc-php/releases/latest/download/protobuf-php8.3-linux-x86_64.so \
+    /usr/local/lib/php/extensions/no-debug-non-zts-20230831/protobuf.so
+RUN docker-php-ext-enable grpc protobuf  # ⚡ 数秒で完了
 ```
 
 ## ファイル名の形式
 
+### gRPC拡張
 ```
 grpc-php{PHPバージョン}-{OS}-{アーキテクチャ}.so
 ```
 
+### Protobuf拡張
+```
+protobuf-php{PHPバージョン}-{OS}-{アーキテクチャ}.so
+```
+
 例:
-- `grpc-php8.3-linux-x86_64.so` - PHP 8.3, Linux x86_64用
-- `grpc-php8.2-macos-arm64.so` - PHP 8.2, macOS ARM64(Apple Silicon)用
+- `grpc-php8.3-linux-x86_64.so` - PHP 8.3, Linux x86_64用 gRPC拡張
+- `protobuf-php8.3-linux-x86_64.so` - PHP 8.3, Linux x86_64用 Protobuf拡張
+- `grpc-php8.2-macos-arm64.so` - PHP 8.2, macOS ARM64(Apple Silicon)用 gRPC拡張
+- `protobuf-php8.2-macos-arm64.so` - PHP 8.2, macOS ARM64(Apple Silicon)用 Protobuf拡張
 
 ## バージョン管理
 
 - このリポジトリのタグ(例: `v1.68.0`)はビルドするgRPCのバージョンに対応
+- Protobuf拡張は常に最新の安定版がビルドされます
 - 各リリースには複数のPHP/プラットフォーム向けバイナリが含まれる
 
 ## 開発
