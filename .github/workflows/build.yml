@@ -15,27 +15,20 @@ env:
   GRPC_VERSION: ${{ github.event.inputs.grpc_version || '1.68.0' }}
 
 jobs:
-  build-linux:
+  build-linux-x86_64:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         php_version: ['8.0', '8.1', '8.2', '8.3', '8.4']
-        arch: ['x86_64', 'aarch64']
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        if: matrix.arch == 'aarch64'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-
       - name: Build gRPC and Protobuf extensions
         run: |
           docker run --rm \
-            --platform linux/${{ matrix.arch == 'x86_64' && 'amd64' || 'arm64' }} \
+            --platform linux/amd64 \
             -v $PWD:/output \
             php:${{ matrix.php_version }}-cli \
             bash -c "
@@ -47,91 +40,91 @@ jobs:
 
               # Copy the built extensions
               PHP_EXT_DIR=\$(php-config --extension-dir)
-              cp \$PHP_EXT_DIR/grpc.so /output/grpc-php${{ matrix.php_version }}-linux-${{ matrix.arch }}.so
-              cp \$PHP_EXT_DIR/protobuf.so /output/protobuf-php${{ matrix.php_version }}-linux-${{ matrix.arch }}.so
+              cp \$PHP_EXT_DIR/grpc.so /output/grpc-php${{ matrix.php_version }}-linux-x86_64.so
+              cp \$PHP_EXT_DIR/protobuf.so /output/protobuf-php${{ matrix.php_version }}-linux-x86_64.so
 
               # Get protobuf version
               PROTOBUF_VERSION=\$(php -r \"echo phpversion('protobuf');\" -dextension=protobuf.so)
 
               # Create metadata for gRPC
-              echo \"PHP Version: ${{ matrix.php_version }}\" > /output/grpc-php${{ matrix.php_version }}-linux-${{ matrix.arch }}.txt
-              echo \"gRPC Version: ${GRPC_VERSION}\" >> /output/grpc-php${{ matrix.php_version }}-linux-${{ matrix.arch }}.txt
-              echo \"Platform: Linux ${{ matrix.arch }}\" >> /output/grpc-php${{ matrix.php_version }}-linux-${{ matrix.arch }}.txt
-              echo \"Build Date: \$(date -u)\" >> /output/grpc-php${{ matrix.php_version }}-linux-${{ matrix.arch }}.txt
+              echo \"PHP Version: ${{ matrix.php_version }}\" > /output/grpc-php${{ matrix.php_version }}-linux-x86_64.txt
+              echo \"gRPC Version: ${GRPC_VERSION}\" >> /output/grpc-php${{ matrix.php_version }}-linux-x86_64.txt
+              echo \"Platform: Linux x86_64\" >> /output/grpc-php${{ matrix.php_version }}-linux-x86_64.txt
+              echo \"Build Date: \$(date -u)\" >> /output/grpc-php${{ matrix.php_version }}-linux-x86_64.txt
 
               # Create metadata for Protobuf
-              echo \"PHP Version: ${{ matrix.php_version }}\" > /output/protobuf-php${{ matrix.php_version }}-linux-${{ matrix.arch }}.txt
-              echo \"Protobuf Version: \$PROTOBUF_VERSION\" >> /output/protobuf-php${{ matrix.php_version }}-linux-${{ matrix.arch }}.txt
-              echo \"Platform: Linux ${{ matrix.arch }}\" >> /output/protobuf-php${{ matrix.php_version }}-linux-${{ matrix.arch }}.txt
-              echo \"Build Date: \$(date -u)\" >> /output/protobuf-php${{ matrix.php_version }}-linux-${{ matrix.arch }}.txt
+              echo \"PHP Version: ${{ matrix.php_version }}\" > /output/protobuf-php${{ matrix.php_version }}-linux-x86_64.txt
+              echo \"Protobuf Version: \$PROTOBUF_VERSION\" >> /output/protobuf-php${{ matrix.php_version }}-linux-x86_64.txt
+              echo \"Platform: Linux x86_64\" >> /output/protobuf-php${{ matrix.php_version }}-linux-x86_64.txt
+              echo \"Build Date: \$(date -u)\" >> /output/protobuf-php${{ matrix.php_version }}-linux-x86_64.txt
             "
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: extensions-php${{ matrix.php_version }}-linux-${{ matrix.arch }}
+          name: extensions-php${{ matrix.php_version }}-linux-x86_64
           path: |
-            grpc-php${{ matrix.php_version }}-linux-${{ matrix.arch }}.so
-            grpc-php${{ matrix.php_version }}-linux-${{ matrix.arch }}.txt
-            protobuf-php${{ matrix.php_version }}-linux-${{ matrix.arch }}.so
-            protobuf-php${{ matrix.php_version }}-linux-${{ matrix.arch }}.txt
+            grpc-php${{ matrix.php_version }}-linux-x86_64.so
+            grpc-php${{ matrix.php_version }}-linux-x86_64.txt
+            protobuf-php${{ matrix.php_version }}-linux-x86_64.so
+            protobuf-php${{ matrix.php_version }}-linux-x86_64.txt
 
-  build-macos:
-    runs-on: ${{ matrix.os }}
+  build-linux-aarch64:
+    runs-on: ubuntu-24.04-arm64
     strategy:
       matrix:
-        os: ['macos-13', 'macos-14']  # macos-13=x86_64, macos-14=arm64
         php_version: ['8.0', '8.1', '8.2', '8.3', '8.4']
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ matrix.php_version }}
-          extensions: none
-          tools: pecl
-
       - name: Build gRPC and Protobuf extensions
         run: |
-          pecl install grpc-${GRPC_VERSION}
-          pecl install protobuf
+          docker run --rm \
+            --platform linux/arm64 \
+            -v $PWD:/output \
+            php:${{ matrix.php_version }}-cli \
+            bash -c "
+              apt-get update && apt-get install -y git build-essential autoconf zlib1g-dev
 
-          # Get extension directory and copy the built extensions
-          PHP_EXT_DIR=$(php-config --extension-dir)
-          ARCH=${{ matrix.os == 'macos-14' && 'arm64' || 'x86_64' }}
-          cp $PHP_EXT_DIR/grpc.so grpc-php${{ matrix.php_version }}-macos-$ARCH.so
-          cp $PHP_EXT_DIR/protobuf.so protobuf-php${{ matrix.php_version }}-macos-$ARCH.so
+              # Install gRPC and Protobuf
+              pecl install grpc-${GRPC_VERSION}
+              pecl install protobuf
 
-          # Get protobuf version
-          PROTOBUF_VERSION=$(php -r "echo phpversion('protobuf');" -dextension=protobuf.so)
+              # Copy the built extensions
+              PHP_EXT_DIR=\$(php-config --extension-dir)
+              cp \$PHP_EXT_DIR/grpc.so /output/grpc-php${{ matrix.php_version }}-linux-aarch64.so
+              cp \$PHP_EXT_DIR/protobuf.so /output/protobuf-php${{ matrix.php_version }}-linux-aarch64.so
 
-          # Create metadata for gRPC
-          echo "PHP Version: ${{ matrix.php_version }}" > grpc-php${{ matrix.php_version }}-macos-$ARCH.txt
-          echo "gRPC Version: ${GRPC_VERSION}" >> grpc-php${{ matrix.php_version }}-macos-$ARCH.txt
-          echo "Platform: macOS $ARCH" >> grpc-php${{ matrix.php_version }}-macos-$ARCH.txt
-          echo "Build Date: $(date -u)" >> grpc-php${{ matrix.php_version }}-macos-$ARCH.txt
+              # Get protobuf version
+              PROTOBUF_VERSION=\$(php -r \"echo phpversion('protobuf');\" -dextension=protobuf.so)
 
-          # Create metadata for Protobuf
-          echo "PHP Version: ${{ matrix.php_version }}" > protobuf-php${{ matrix.php_version }}-macos-$ARCH.txt
-          echo "Protobuf Version: $PROTOBUF_VERSION" >> protobuf-php${{ matrix.php_version }}-macos-$ARCH.txt
-          echo "Platform: macOS $ARCH" >> protobuf-php${{ matrix.php_version }}-macos-$ARCH.txt
-          echo "Build Date: $(date -u)" >> protobuf-php${{ matrix.php_version }}-macos-$ARCH.txt
+              # Create metadata for gRPC
+              echo \"PHP Version: ${{ matrix.php_version }}\" > /output/grpc-php${{ matrix.php_version }}-linux-aarch64.txt
+              echo \"gRPC Version: ${GRPC_VERSION}\" >> /output/grpc-php${{ matrix.php_version }}-linux-aarch64.txt
+              echo \"Platform: Linux aarch64\" >> /output/grpc-php${{ matrix.php_version }}-linux-aarch64.txt
+              echo \"Build Date: \$(date -u)\" >> /output/grpc-php${{ matrix.php_version }}-linux-aarch64.txt
+
+              # Create metadata for Protobuf
+              echo \"PHP Version: ${{ matrix.php_version }}\" > /output/protobuf-php${{ matrix.php_version }}-linux-aarch64.txt
+              echo \"Protobuf Version: \$PROTOBUF_VERSION\" >> /output/protobuf-php${{ matrix.php_version }}-linux-aarch64.txt
+              echo \"Platform: Linux aarch64\" >> /output/protobuf-php${{ matrix.php_version }}-linux-aarch64.txt
+              echo \"Build Date: \$(date -u)\" >> /output/protobuf-php${{ matrix.php_version }}-linux-aarch64.txt
+            "
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: extensions-php${{ matrix.php_version }}-macos-${{ matrix.os == 'macos-14' && 'arm64' || 'x86_64' }}
+          name: extensions-php${{ matrix.php_version }}-linux-aarch64
           path: |
-            grpc-php${{ matrix.php_version }}-macos-*.so
-            grpc-php${{ matrix.php_version }}-macos-*.txt
-            protobuf-php${{ matrix.php_version }}-macos-*.so
-            protobuf-php${{ matrix.php_version }}-macos-*.txt
+            grpc-php${{ matrix.php_version }}-linux-aarch64.so
+            grpc-php${{ matrix.php_version }}-linux-aarch64.txt
+            protobuf-php${{ matrix.php_version }}-linux-aarch64.so
+            protobuf-php${{ matrix.php_version }}-linux-aarch64.txt
 
   release:
-    needs: [build-linux, build-macos]
+    needs: [build-linux-x86_64, build-linux-aarch64]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
 
