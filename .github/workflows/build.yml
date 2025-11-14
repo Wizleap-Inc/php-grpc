@@ -70,7 +70,7 @@ jobs:
             protobuf-php${{ matrix.php_version }}-linux-x86_64.txt
 
   build-linux-aarch64:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     strategy:
       matrix:
         php_version: ['8.0', '8.1', '8.2', '8.3', '8.4']
