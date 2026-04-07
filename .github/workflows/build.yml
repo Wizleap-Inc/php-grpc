@@ -9,10 +9,10 @@ on:
       grpc_version:
         description: 'gRPC version to build'
         required: true
-        default: '1.78.1'
+        default: '1.78.0'
 
 env:
-  GRPC_VERSION: ${{ github.event.inputs.grpc_version || '1.78.1' }}
+  GRPC_VERSION: ${{ github.event.inputs.grpc_version || '1.78.0' }}
 
 jobs:
   build-linux-x86_64:
